@@ -364,6 +364,7 @@ module ActiveMerchant
       def parse_validation_response(response, options)
         success, message = nil
         puts response
+        
         xml = REXML::Document.new(response)
         root_node = xml.elements['AddressValidationReply']
         
