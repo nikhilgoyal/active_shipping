@@ -13,10 +13,10 @@ module ActiveMerchant
       
       cattr_reader :name
       @@name = "FedEx"
-      
+
       TEST_URL = 'https://gatewaybeta.fedex.com:443/xml'
       LIVE_URL = 'https://gateway.fedex.com:443/xml'
-      
+
       CarrierCodes = {
         "fedex_ground" => "FDXG",
         "fedex_express" => "FDXE"
@@ -115,6 +115,15 @@ module ActiveMerchant
         parse_tracking_response(response, options)
       end
       
+      def find_address_validation(destination, options={})
+        options = @options.update(options)
+        
+        validation_request = build_validation_request(destination, options)
+        response = commit(save_request(validation_request), (options[:test] || false)).gsub(/<(\/)?.*?\:(.*?)>/, '<\1\2>')
+        parse_validation_response(response, options)
+
+      end
+      
       protected
       def build_rate_request(origin, destination, packages, options={})
         imperial = ['US','LR','MM'].include?(origin.country_code(:alpha2))
@@ -191,6 +200,50 @@ module ActiveMerchant
           root_node << XmlNode.new('IncludeDetailedScans', 1)
         end
         xml_request.to_s
+      end
+      
+      def build_validation_request(destination, options={})
+        xml_request = XmlNode.new('AddressValidationRequest', 'xmlns' => 'http://fedex.com/ws/addressvalidation/v2') do |root_node|
+          root_node << build_request_header
+          
+          # Version
+          root_node << XmlNode.new('Version') do |version_node|
+            version_node << XmlNode.new('ServiceId', 'aval')
+            version_node << XmlNode.new('Major', '2')
+            version_node << XmlNode.new('Intermediate', '0')
+            version_node << XmlNode.new('Minor', '0')
+          end
+          root_node << XmlNode.new('RequestTimestamp', Time.now) 
+          root_node << XmlNode.new('Options') do |option|
+            option << XmlNode.new('VerifyAddresses', '1')
+            option << XmlNode.new('CheckResidentialStatus', '1')
+            option << XmlNode.new('MaximumNumberOfMatches', '10')
+            option << XmlNode.new('StreetAccuracy', 'MEDIUM')
+            option << XmlNode.new('DirectionalAccuracy', 'MEDIUM')
+            option << XmlNode.new('CompanyNameAccuracy', 'MEDIUM')
+            option << XmlNode.new('ConvertToUpperCase', '1')
+            option << XmlNode.new('RecognizeAlternateCityNames', '1')
+            option << XmlNode.new('ReturnParsedElements', '1')
+          end
+          
+          root_node << XmlNode.new('AddressesToValidate') do |address|
+            address << XmlNode.new('CompanyName', destination.company_name) unless destination.company_name.nil?
+            address << XmlNode.new('Address') do |a|
+              a << XmlNode.new('StreetLines', destination.address1) # Address1 is required.
+              a << XmlNode.new('StreetLines', destination.address2) unless destination.address2.nil?
+              a << XmlNode.new('StreetLines', destination.address3) unless destination.address3.nil?
+              a << XmlNode.new('City', destination.city)
+              a << XmlNode.new('StateOrProvinceCode', destination.state)
+              a << XmlNode.new('PostalCode', destination.postal_code)
+              a << XmlNode.new('CountryCode', destination.country_code(:alpha2))
+              a << XmlNode.new("Residential", 1) unless destination.commercial?
+            end
+          end
+        end
+
+        puts xml_request.to_s
+        xml_request.to_s
+
       end
       
       def build_request_header
@@ -307,7 +360,24 @@ module ActiveMerchant
           :tracking_number => tracking_number
         )
       end
-            
+      
+      def parse_validation_response(response, options)
+        success, message = nil
+        puts response
+        xml = REXML::Document.new(response)
+        root_node = xml.elements['AddressValidationReply']
+        
+        success = response_success?(xml)
+        message = response_message(xml)
+        
+        if success
+          address_details = root_node.elements['AddressResults']
+          residential = address_details[0].get_text('ResidentialStatus').to_s
+          return residential
+        end
+        
+      end
+      
       def response_status_node(document)
         document.elements['/*/Notifications/']
       end
