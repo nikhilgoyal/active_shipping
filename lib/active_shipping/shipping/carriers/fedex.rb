@@ -241,7 +241,6 @@ module ActiveMerchant
           end
         end
 
-        puts xml_request.to_s
         xml_request.to_s
 
       end
@@ -374,7 +373,9 @@ module ActiveMerchant
         if success
           address_details = root_node.elements['AddressResults']
           residential = address_details[0].get_text('ResidentialStatus').to_s
-          return residential
+          result = ValidationResult.new(residential)
+          ValidationResponse.new(success, message, Hash.from_xml(response),
+            :validation_result => result)
         end
         
       end
