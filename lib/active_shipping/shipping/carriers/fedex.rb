@@ -362,8 +362,7 @@ module ActiveMerchant
       
       def parse_validation_response(response, options)
         success, message = nil
-        puts response
-        
+
         xml = REXML::Document.new(response)
         root_node = xml.elements['AddressValidationReply']
         
@@ -374,7 +373,7 @@ module ActiveMerchant
           address_details = root_node.elements['AddressResults']
           residential = address_details[0].get_text('ResidentialStatus').to_s
           result = ValidationResult.new(residential)
-          ValidationResponse.new(success, message, Hash.from_xml(response),
+          return ValidationResponse.new(success, message, Hash.from_xml(response),
             :validation_result => result)
         end
         
