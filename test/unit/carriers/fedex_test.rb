@@ -25,6 +25,11 @@ class FedExTest < Test::Unit::TestCase
   #   assert_equal "WARNING - 556: There are no valid services available. ", response.message
   # end
   
+  def test_find_address_validation_should_return_a_validation_response
+    @carrier.expects(:commit).returns(xml_fixture('fedex/validation_response'))
+    assert_instance_of ActiveMerchant::Shipping::ValidationResponse, @carrier.find_address_validation(@locations[:new_york], :test => true)
+  end
+
   def test_find_tracking_info_should_return_a_tracking_response
     @carrier.expects(:commit).returns(xml_fixture('fedex/tracking_response'))
     assert_instance_of ActiveMerchant::Shipping::TrackingResponse, @carrier.find_tracking_info('077973360403984', :test => true)

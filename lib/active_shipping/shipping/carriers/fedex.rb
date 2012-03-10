@@ -120,6 +120,7 @@ module ActiveMerchant
         
         validation_request = build_validation_request(destination, options)
         response = commit(save_request(validation_request), (options[:test] || false)).gsub(/<(\/)?.*?\:(.*?)>/, '<\1\2>')
+        puts "CLASS IS: #{response.class}"
         parse_validation_response(response, options)
 
       end
@@ -227,7 +228,7 @@ module ActiveMerchant
           end
           
           root_node << XmlNode.new('AddressesToValidate') do |address|
-            address << XmlNode.new('CompanyName', destination.company_name) unless destination.company_name.nil?
+            address << XmlNode.new('CompanyName', destination.company_name) unless destination.company_name.nil? || destination.company_name.empty?
             address << XmlNode.new('Address') do |a|
               a << XmlNode.new('StreetLines', destination.address1) # Address1 is required.
               a << XmlNode.new('StreetLines', destination.address2) unless destination.address2.nil? || destination.address2.empty?
@@ -362,7 +363,8 @@ module ActiveMerchant
       
       def parse_validation_response(response, options)
         success, message = nil
-
+        print 'HERE IT IS!!!!!!!!!!!!'
+        print response
         xml = REXML::Document.new(response)
         root_node = xml.elements['AddressValidationReply']
         
