@@ -147,6 +147,15 @@ module ActiveMerchant
         response = commit(save_request(tracking_request), (options[:test] || false)).gsub(/<(\/)?.*?\:(.*?)>/, '<\1\2>')
         parse_tracking_response(response, options)
       end
+
+      def validate_address(address, options={})
+        options[:test] = false
+        options = @options.update(options)
+
+        validation_request = build_validation_request(address, options)
+        response = commit(save_request(validation_request), (options[:test] || false)).gsub(/<(\/)?.*?\:(.*?)>/, '<\1\2>')
+        parse_validation_response(response, options)
+      end
       
       protected
       def build_rate_request(origin, destination, packages, options={})
@@ -225,7 +234,49 @@ module ActiveMerchant
         end
         xml_request.to_s
       end
-      
+
+      def build_validation_request(location, options={})
+        xml_request = XmlNode.new('AddressValidationRequest', 'xmlns' => 'http://fedex.com/ws/addressvalidation/v2') do |root_node|
+          root_node << build_request_header
+          
+          root_node << XmlNode.new('Version') do |version_node|
+            version_node << XmlNode.new('ServiceId', 'aval')
+            version_node << XmlNode.new('Major', '2')
+            version_node << XmlNode.new('Intermediate', '0')
+            version_node << XmlNode.new('Minor', '0')
+          end
+          root_node << XmlNode.new('RequestTimestamp', Time.now) 
+          root_node << XmlNode.new('Options') do |option|
+            option << XmlNode.new('VerifyAddresses', '1')
+            option << XmlNode.new('CheckResidentialStatus', '1')
+            option << XmlNode.new('MaximumNumberOfMatches', '10')
+            option << XmlNode.new('StreetAccuracy', 'MEDIUM')
+            option << XmlNode.new('DirectionalAccuracy', 'MEDIUM')
+            option << XmlNode.new('CompanyNameAccuracy', 'MEDIUM')
+            option << XmlNode.new('ConvertToUpperCase', '1')
+            option << XmlNode.new('RecognizeAlternateCityNames', '1')
+            option << XmlNode.new('ReturnParsedElements', '1')
+          end
+          
+          root_node << XmlNode.new('AddressesToValidate') do |address|
+            address << XmlNode.new('CompanyName', location.company_name) unless location.company_name.nil? || location.company_name.empty?
+            address << XmlNode.new('Address') do |a|
+              a << XmlNode.new('StreetLines', location.address1) # Address1 is required.
+              a << XmlNode.new('StreetLines', location.address2) unless location.address2.nil? || location.address2.empty?
+              a << XmlNode.new('StreetLines', location.address3) unless location.address3.nil? || location.address3.empty?
+              a << XmlNode.new('City', location.city)
+              a << XmlNode.new('StateOrProvinceCode', location.state)
+              a << XmlNode.new('PostalCode', location.postal_code)
+              a << XmlNode.new('CountryCode', location.country_code(:alpha2))
+              a << XmlNode.new("Residential", 1) unless location.commercial?
+            end
+          end
+        end
+
+        xml_request.to_s
+
+      end 
+
       def build_request_header
         web_authentication_detail = XmlNode.new('WebAuthenticationDetail') do |wad|
           wad << XmlNode.new('UserCredential') do |uc|
@@ -364,6 +415,25 @@ module ActiveMerchant
           :destination => destination,
           :tracking_number => tracking_number
         )
+      end
+      
+      def parse_validation_response(response, options)
+        success, message = nil
+        print response
+        xml = REXML::Document.new(response)
+        root_node = xml.elements['AddressValidationReply']
+        
+        success = response_success?(xml)
+        message = response_message(xml)
+        
+        if success
+          address_details = root_node.elements['AddressResults']
+          residential = address_details[0].get_text('ResidentialStatus').to_s
+          result = ValidationResult.new(residential)
+          return ValidationResponse.new(success, message, Hash.from_xml(response),
+            :validation_result => result)
+        end
+        
       end
             
       def response_status_node(document)
