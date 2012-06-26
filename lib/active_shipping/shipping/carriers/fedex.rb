@@ -148,12 +148,12 @@ module ActiveMerchant
         parse_tracking_response(response, options)
       end
 
-      def validate_address(address, options={})
-        options[:test] = false
+      def find_residential_status(address, options={})
         options = @options.update(options)
 
         validation_request = build_validation_request(address, options)
-        response = commit(save_request(validation_request), (options[:test] || false)).gsub(/<(\/)?.*?\:(.*?)>/, '<\1\2>')
+        response = commit(save_request(validation_request), (options[:test] || false))
+        response = response.gsub(/<(\/)?.*?\:(.*?)>/, '<\1\2>')
         parse_validation_response(response, options)
       end
       
@@ -419,7 +419,6 @@ module ActiveMerchant
       
       def parse_validation_response(response, options)
         success, message = nil
-        print response
         xml = REXML::Document.new(response)
         root_node = xml.elements['AddressValidationReply']
         

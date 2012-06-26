@@ -154,10 +154,12 @@ class FedExTest < Test::Unit::TestCase
   end
 
   def test_validation
-    response = @carrier.validate_address(@locations[:beverly_hills])
-    result = response.validation_result
-    assert result.residential == 'BUSINESS'
-    puts result.residential
+    #FedEx.logger = Logger.new($stdout)
+    assert_nothing_raised do
+      response = @carrier.find_residential_status(@locations[:beverly_hills], :test => true)
+      result = response.validation_result
+      assert result.residential == 'BUSINESS'
+    end
   end
 
 end

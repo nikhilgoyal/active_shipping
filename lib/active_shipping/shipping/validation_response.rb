@@ -9,6 +9,10 @@ module ActiveMerchant
         @validation_result = options[:validation_result]
         super
       end
+
+      def validation_result
+        @validation_result
+      end
       
     end
     

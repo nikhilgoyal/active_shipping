@@ -204,4 +204,13 @@ class FedExTest < Test::Unit::TestCase
     assert_equal delivery_date, rate_estimates.rates[0].delivery_date
     assert_equal [delivery_date] * 2, rate_estimates.rates[0].delivery_range
   end
+
+  def test_residential
+    mock_response = xml_fixture('fedex/validation_response')
+    @carrier.expects(:commit).returns(mock_response)
+    response = @carrier.find_residential_status(@locations[:beverly_hills], :test => true)
+    result = response.validation_result
+    assert result.residential == 'BUSINESS'
+  end
+
 end
